@@ -1,0 +1,155 @@
+---
+title: "June 25th Notes- Data Visualization"
+subtitle: "Adapted from Introduction to Data Science by R. Irizarry, Chapter 10"
+author: "Shay Iyer"
+date: "6/25/2021"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+*Link to textbook:* https://rafalab.github.io/dsbook/
+
+## Encoding data using visual cues
+
+```{r}
+library(tidyverse)
+library(dslabs)
+library(gridExtra)
+data(mtcars)
+```
+
+### The issue with pie charts
+
+Eyes are not great at judging relative areas, but we can easily judge linear measures: so a bar/dot chart usually works better.
+
+```{r}
+mtcars %>% 
+  group_by(gear) %>% 
+  summarize( N = n()) %>% 
+  ggplot(aes(x = gear, y = N)) + geom_col()
+```
+
+When using position rather than length, then you don't need to use zero in the scale.
+
+```{r barplot-from-zero-3, echo=FALSE}
+data.frame(Candidate = factor(c("Maduro", "Capriles"), levels = c("Maduro", "Capriles")),
+           Percent = c(50.66, 49.07))
+
+p1 <- gapminder %>% filter(year == 2012) %>%
+  ggplot(aes(continent, life_expectancy)) +
+  geom_point()
+p2 <- p1 +
+  scale_y_continuous(limits = c(0, 84))
+grid.arrange(p2, p1, ncol = 2)
+```
+
+The `reorder` function lets us reorder groups as well. Earlier we saw an example related to income distributions across regions. Here are the two versions plotted against each other:
+
+```{r reorder-boxplot-example, out.width="100%", echo=FALSE}
+past_year <- 1970
+p1 <- gapminder %>% 
+  mutate(dollars_per_day = gdp/population/365) %>%
+  filter(year == past_year & !is.na(gdp)) %>%
+  ggplot(aes(region, dollars_per_day)) +
+  geom_boxplot() +
+  geom_point() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  xlab("")
+p2 <- gapminder %>% 
+  mutate(dollars_per_day = gdp/population/365) %>%
+  filter(year == past_year & !is.na(gdp)) %>%
+  mutate(region = reorder(region, dollars_per_day, FUN = median)) %>%
+  ggplot(aes(region, dollars_per_day)) +
+  geom_boxplot() +
+  geom_point() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  xlab("")
+grid.arrange(p1, p2, nrow=1)
+```
+
+> We are ordering by the median value here!! When you order by the median, the order tells you something about the order of GDP on AVERAGE
+
+
+### Make sure to show the data when you can!
+
+```{r show-data-1, echo=FALSE, fig.height=6}
+data("heights")
+p1 <- heights %>% 
+  group_by(sex) %>% 
+  summarize(average = mean(height), se=sd(height)/sqrt(n())) %>%
+  ggplot(aes(sex, average)) + 
+  geom_errorbar(aes(ymin = average - 2*se, ymax = average+2*se), width = 0.25) +
+  geom_bar(stat = "identity", width=0.5, fill = "blue", color = "black") +
+  ylab("Height in inches")
+p1
+```
+
+This graph doesn't tell you much about the variation
+
+```{r}
+heights %>% 
+  ggplot(aes(sex, height)) + geom_point()
+```
+
+However, the points are all on top of each other... so you can `jitter` the data (and use alpha blending to make the points' overlap darker)
+
+```{r}
+heights %>% 
+  ggplot(aes(sex, height)) + geom_jitter(width = 0.1, alpha = 0.2)
+```
+
+Also, histograms are helpful to give a sense of distribution.
+
+```{r common-axes-histograms-wrong, echo=FALSE}
+heights %>% 
+  ggplot(aes(height, ..density..)) +
+  geom_histogram(binwidth = 1, color="black") +
+  facet_grid(.~sex, scales = "free_x")
+```
+
+If you want to compare x axes, put them on top of each other; y axes, put them next to each other.
+
+```{r}
+p2 <- heights %>% 
+  ggplot(aes(height, ..density..)) +
+  geom_histogram(binwidth = 1, color="black") +
+  facet_grid(sex~.)
+p3 <- heights %>% 
+  ggplot(aes(sex, height)) + 
+  geom_boxplot(coef=3) + 
+  geom_jitter(width = 0.1, alpha = 0.2) +
+  ylab("Height in inches")
+
+grid.arrange(p1, p2, p3, ncol = 3)
+```
+
+"From this plot, one would conclude that countries in Asia are much more populous than in other continents. Following the _show the data_ principle, we quickly notice that this is due to two very large countries, which we assume are India and China:"
+
+```{r no-transformation, echo=FALSE}
+p2 <- gapminder %>% filter(year == 2015) %>% 
+  mutate(continent = reorder(continent, population, median)) %>%
+  ggplot(aes(continent, population/10^6)) + 
+  ylab("Population in Millions") +
+  xlab("Continent")
+p2 +  geom_jitter(width = .1, alpha = .5) 
+```
+
+Using log-transformation helps us visually gauge data that logarithmically expands
+```{r correct-transformation, out.width="100%", echo=TRUE, fig.height=3.5}
+p2 <- p2 + geom_boxplot(coef=3) + 
+  geom_jitter(width = .1, alpha = .5) + 
+  scale_y_log10(breaks = c(1,10,100,1000)) +
+  theme(axis.text.x = element_text(size = 7)) 
+grid.arrange(p1, p2, ncol = 2)
+```
+
+
+```{r}
+
+```
+
